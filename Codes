@@ -1,1 +1,289 @@
+## Mounting Google Drive
+from google.colab import drive, files
+drive.mount('/content/drive')
+from __future__ import absolute_import, print_function,division, unicode_literals
+import os.path
+import glob
+import shutil
+
+import tensorflow as tf
+assert tf.__version__.startswith('2')
+
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.layers import Conv2D,Flatten,MaxPooling2D,Dropout,Dense,Activation
+from keras import regularizers
+import keras
+
+import numpy as np
+import matplotlib.pyplot as plt
+import pathlib
+Drive already mounted at /content/drive; to attempt to forcibly remount, call drive.mount("/content/drive", force_remount=True).
+BATCH_SIZE = 8
+IMG_HEIGHT = 224
+IMG_WIDTH = 224
+data_dir ="/content/drive/MyDrive/Dataset/Rice_Leaf_Diseases"
+data_dir = pathlib.Path(data_dir)
+
+CLASS_NAMES = np.array(['Leaf Blight','Brown Spot','Leaf Smut'])
+
+print('Class Names: ', CLASS_NAMES)
+Class Names:  ['Leaf Blight' 'Brown Spot' 'Leaf Smut']
+train_path = '/content/drive/MyDrive/Dataset/Rice_Leaf_Diseases'
+test_path = '/content/drive/MyDrive/Dataset/Rice_Leaf_Diseases'
+image_train_gen = ImageDataGenerator(rescale=1./255,
+                                     zoom_range=0.50,
+                                     rotation_range=45,
+                                     horizontal_flip=True,
+                                     width_shift_range=0.15,
+                                     height_shift_range=0.15)
+
+train_data_gen = image_train_gen.flow_from_directory(train_path,
+                                                     shuffle=True,
+                                                     batch_size=BATCH_SIZE,
+                                                     target_size=(IMG_HEIGHT,IMG_WIDTH),
+                                                     class_mode='sparse')
+
+img_val_gen = ImageDataGenerator(rescale=1./255)
+val_data_gen = img_val_gen.flow_from_directory(test_path,
+                                               batch_size=BATCH_SIZE,
+                                               target_size=(IMG_HEIGHT,IMG_WIDTH),
+                                               class_mode='sparse')
+Found 120 images belonging to 3 classes.
+Found 120 images belonging to 3 classes.
+def plotImages(image_arr):
+    fig,axes = plt.subplots(1, 5, figsize=(20,20))
+    axes = axes.flatten()
+    for img,ax in zip(image_arr,axes):
+        ax.imshow(img)
+    plt.tight_layout()
+    plt.show()
+# Plot a few training images
+img_array = [train_data_gen[0][0][0] for i in range(5)]
+plotImages(img_array)
+
+# plot a few val images
+img_array  = [val_data_gen[0][0][0] for i in range(5)]
+plotImages(img_array)
+
+# Model building
+#Instatiating A convnet
+
+model = Sequential()
+model.add(Conv2D(16, (3,3), input_shape=(224,224,3), activation="relu"))
+model.add(MaxPooling2D(pool_size = (2,2)))
+model.add(Conv2D(32, (3,3), activation="relu"))
+model.add(MaxPooling2D(pool_size = (2,2)))
+model.add(Conv2D(64, (3,3), activation="relu"))
+model.add(MaxPooling2D(pool_size = (2,2)))
+model.add(Flatten())
+model.add(Dropout(0.2))
+model.add(Dense(128,activation="relu"))
+model.add(Dropout(0.2))
+model.add(Dense(3, activation="softmax"))
+
+model.compile(
+    optimizer = "adam",
+    loss = "sparse_categorical_crossentropy",
+    metrics = ['accuracy']
+)
+
+model.summary()
+Model: "sequential"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+conv2d (Conv2D)              (None, 222, 222, 16)      448       
+_________________________________________________________________
+max_pooling2d (MaxPooling2D) (None, 111, 111, 16)      0         
+_________________________________________________________________
+conv2d_1 (Conv2D)            (None, 109, 109, 32)      4640      
+_________________________________________________________________
+max_pooling2d_1 (MaxPooling2 (None, 54, 54, 32)        0         
+_________________________________________________________________
+conv2d_2 (Conv2D)            (None, 52, 52, 64)        18496     
+_________________________________________________________________
+max_pooling2d_2 (MaxPooling2 (None, 26, 26, 64)        0         
+_________________________________________________________________
+flatten (Flatten)            (None, 43264)             0         
+_________________________________________________________________
+dropout (Dropout)            (None, 43264)             0         
+_________________________________________________________________
+dense (Dense)                (None, 128)               5537920   
+_________________________________________________________________
+dropout_1 (Dropout)          (None, 128)               0         
+_________________________________________________________________
+dense_1 (Dense)              (None, 3)                 387       
+=================================================================
+Total params: 5,561,891
+Trainable params: 5,561,891
+Non-trainable params: 0
+_________________________________________________________________
+EPOCHS=70
+history = model.fit_generator(train_data_gen, epochs=EPOCHS, validation_data=val_data_gen)
+/usr/local/lib/python3.7/dist-packages/keras/engine/training.py:1972: UserWarning: `Model.fit_generator` is deprecated and will be removed in a future version. Please use `Model.fit`, which supports generators.
+  warnings.warn('`Model.fit_generator` is deprecated and '
+Epoch 1/70
+15/15 [==============================] - 17s 1s/step - loss: 1.7265 - accuracy: 0.3333 - val_loss: 1.0951 - val_accuracy: 0.3583
+Epoch 2/70
+15/15 [==============================] - 16s 1s/step - loss: 1.1260 - accuracy: 0.3333 - val_loss: 1.0893 - val_accuracy: 0.4000
+Epoch 3/70
+15/15 [==============================] - 16s 1s/step - loss: 1.0945 - accuracy: 0.3667 - val_loss: 1.0749 - val_accuracy: 0.3500
+Epoch 4/70
+15/15 [==============================] - 16s 1s/step - loss: 1.0891 - accuracy: 0.4000 - val_loss: 1.0840 - val_accuracy: 0.3667
+Epoch 5/70
+15/15 [==============================] - 16s 1s/step - loss: 1.0927 - accuracy: 0.4083 - val_loss: 1.0105 - val_accuracy: 0.4667
+Epoch 6/70
+15/15 [==============================] - 16s 1s/step - loss: 1.0475 - accuracy: 0.3833 - val_loss: 0.9898 - val_accuracy: 0.5417
+Epoch 7/70
+15/15 [==============================] - 16s 1s/step - loss: 0.9919 - accuracy: 0.4667 - val_loss: 0.9396 - val_accuracy: 0.5167
+Epoch 8/70
+15/15 [==============================] - 16s 1s/step - loss: 0.9794 - accuracy: 0.5000 - val_loss: 1.0416 - val_accuracy: 0.4417
+Epoch 9/70
+15/15 [==============================] - 16s 1s/step - loss: 1.0231 - accuracy: 0.4667 - val_loss: 0.8975 - val_accuracy: 0.5500
+Epoch 10/70
+15/15 [==============================] - 16s 1s/step - loss: 0.9753 - accuracy: 0.4667 - val_loss: 0.8870 - val_accuracy: 0.5000
+Epoch 11/70
+15/15 [==============================] - 16s 1s/step - loss: 1.0033 - accuracy: 0.4583 - val_loss: 0.8010 - val_accuracy: 0.5750
+Epoch 12/70
+15/15 [==============================] - 16s 1s/step - loss: 0.9374 - accuracy: 0.5750 - val_loss: 1.0424 - val_accuracy: 0.4583
+Epoch 13/70
+15/15 [==============================] - 16s 1s/step - loss: 1.0030 - accuracy: 0.4500 - val_loss: 0.9355 - val_accuracy: 0.6083
+Epoch 14/70
+15/15 [==============================] - 16s 1s/step - loss: 0.9991 - accuracy: 0.4750 - val_loss: 0.8607 - val_accuracy: 0.5833
+Epoch 15/70
+15/15 [==============================] - 16s 1s/step - loss: 0.9405 - accuracy: 0.5500 - val_loss: 0.7402 - val_accuracy: 0.7333
+Epoch 16/70
+15/15 [==============================] - 16s 1s/step - loss: 0.8837 - accuracy: 0.5917 - val_loss: 1.0550 - val_accuracy: 0.5000
+Epoch 17/70
+15/15 [==============================] - 16s 1s/step - loss: 0.9191 - accuracy: 0.5417 - val_loss: 0.8805 - val_accuracy: 0.5333
+Epoch 18/70
+15/15 [==============================] - 16s 1s/step - loss: 0.8733 - accuracy: 0.6000 - val_loss: 0.7409 - val_accuracy: 0.6583
+Epoch 19/70
+15/15 [==============================] - 16s 1s/step - loss: 0.8009 - accuracy: 0.6250 - val_loss: 0.5892 - val_accuracy: 0.7250
+Epoch 20/70
+15/15 [==============================] - 16s 1s/step - loss: 0.8609 - accuracy: 0.6333 - val_loss: 0.7675 - val_accuracy: 0.6917
+Epoch 21/70
+15/15 [==============================] - 16s 1s/step - loss: 0.7413 - accuracy: 0.7000 - val_loss: 0.7374 - val_accuracy: 0.6750
+Epoch 22/70
+15/15 [==============================] - 16s 1s/step - loss: 0.8359 - accuracy: 0.6333 - val_loss: 0.5776 - val_accuracy: 0.7583
+Epoch 23/70
+15/15 [==============================] - 16s 1s/step - loss: 0.7992 - accuracy: 0.6250 - val_loss: 0.7385 - val_accuracy: 0.6833
+Epoch 24/70
+15/15 [==============================] - 16s 1s/step - loss: 0.7610 - accuracy: 0.7000 - val_loss: 0.5954 - val_accuracy: 0.7500
+Epoch 25/70
+15/15 [==============================] - 16s 1s/step - loss: 0.7686 - accuracy: 0.6500 - val_loss: 0.5482 - val_accuracy: 0.8333
+Epoch 26/70
+15/15 [==============================] - 16s 1s/step - loss: 0.6392 - accuracy: 0.7667 - val_loss: 0.5080 - val_accuracy: 0.8083
+Epoch 27/70
+15/15 [==============================] - 16s 1s/step - loss: 0.6299 - accuracy: 0.7083 - val_loss: 0.4772 - val_accuracy: 0.8250
+Epoch 28/70
+15/15 [==============================] - 16s 1s/step - loss: 0.7555 - accuracy: 0.6333 - val_loss: 0.6028 - val_accuracy: 0.7333
+Epoch 29/70
+15/15 [==============================] - 16s 1s/step - loss: 0.7737 - accuracy: 0.6667 - val_loss: 0.5670 - val_accuracy: 0.7750
+Epoch 30/70
+15/15 [==============================] - 16s 1s/step - loss: 0.7635 - accuracy: 0.6917 - val_loss: 0.5562 - val_accuracy: 0.8167
+Epoch 31/70
+15/15 [==============================] - 16s 1s/step - loss: 0.6543 - accuracy: 0.7333 - val_loss: 0.5208 - val_accuracy: 0.7833
+Epoch 32/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5793 - accuracy: 0.7750 - val_loss: 0.4079 - val_accuracy: 0.8667
+Epoch 33/70
+15/15 [==============================] - 18s 1s/step - loss: 0.5554 - accuracy: 0.7500 - val_loss: 0.3847 - val_accuracy: 0.8417
+Epoch 34/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5726 - accuracy: 0.7750 - val_loss: 0.6076 - val_accuracy: 0.7583
+Epoch 35/70
+15/15 [==============================] - 16s 1s/step - loss: 0.7190 - accuracy: 0.7250 - val_loss: 0.5051 - val_accuracy: 0.7917
+Epoch 36/70
+15/15 [==============================] - 16s 1s/step - loss: 0.6704 - accuracy: 0.7333 - val_loss: 0.4467 - val_accuracy: 0.8083
+Epoch 37/70
+15/15 [==============================] - 16s 1s/step - loss: 0.7278 - accuracy: 0.7333 - val_loss: 0.4702 - val_accuracy: 0.8583
+Epoch 38/70
+15/15 [==============================] - 16s 1s/step - loss: 0.6580 - accuracy: 0.7083 - val_loss: 0.4146 - val_accuracy: 0.8500
+Epoch 39/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4963 - accuracy: 0.8333 - val_loss: 0.4163 - val_accuracy: 0.8250
+Epoch 40/70
+15/15 [==============================] - 16s 1s/step - loss: 0.6025 - accuracy: 0.7417 - val_loss: 0.3812 - val_accuracy: 0.8667
+Epoch 41/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5735 - accuracy: 0.7583 - val_loss: 0.4074 - val_accuracy: 0.8167
+Epoch 42/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5169 - accuracy: 0.7333 - val_loss: 0.3452 - val_accuracy: 0.8833
+Epoch 43/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4178 - accuracy: 0.8417 - val_loss: 0.4976 - val_accuracy: 0.8000
+Epoch 44/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4602 - accuracy: 0.8000 - val_loss: 0.2950 - val_accuracy: 0.8833
+Epoch 45/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4815 - accuracy: 0.8083 - val_loss: 0.3805 - val_accuracy: 0.8583
+Epoch 46/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4398 - accuracy: 0.8083 - val_loss: 0.4159 - val_accuracy: 0.8167
+Epoch 47/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5242 - accuracy: 0.7583 - val_loss: 0.3562 - val_accuracy: 0.8333
+Epoch 48/70
+15/15 [==============================] - 16s 1s/step - loss: 0.3968 - accuracy: 0.8417 - val_loss: 0.3086 - val_accuracy: 0.8500
+Epoch 49/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4007 - accuracy: 0.8250 - val_loss: 0.3112 - val_accuracy: 0.8583
+Epoch 50/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4449 - accuracy: 0.8333 - val_loss: 0.3177 - val_accuracy: 0.8667
+Epoch 51/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4939 - accuracy: 0.7917 - val_loss: 0.2681 - val_accuracy: 0.8833
+Epoch 52/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4136 - accuracy: 0.8250 - val_loss: 0.3620 - val_accuracy: 0.8583
+Epoch 53/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4901 - accuracy: 0.7917 - val_loss: 0.2702 - val_accuracy: 0.9000
+Epoch 54/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5509 - accuracy: 0.7583 - val_loss: 0.3165 - val_accuracy: 0.9083
+Epoch 55/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4731 - accuracy: 0.8000 - val_loss: 0.5234 - val_accuracy: 0.7833
+Epoch 56/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5352 - accuracy: 0.7583 - val_loss: 0.3551 - val_accuracy: 0.8667
+Epoch 57/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4880 - accuracy: 0.7917 - val_loss: 0.3156 - val_accuracy: 0.8667
+Epoch 58/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4234 - accuracy: 0.8167 - val_loss: 0.3386 - val_accuracy: 0.8583
+Epoch 59/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4070 - accuracy: 0.8250 - val_loss: 0.2638 - val_accuracy: 0.8917
+Epoch 60/70
+15/15 [==============================] - 16s 1s/step - loss: 0.3410 - accuracy: 0.8417 - val_loss: 0.3195 - val_accuracy: 0.8667
+Epoch 61/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5102 - accuracy: 0.7750 - val_loss: 0.3137 - val_accuracy: 0.8583
+Epoch 62/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4855 - accuracy: 0.8167 - val_loss: 0.4439 - val_accuracy: 0.7500
+Epoch 63/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5438 - accuracy: 0.7833 - val_loss: 0.4410 - val_accuracy: 0.8083
+Epoch 64/70
+15/15 [==============================] - 16s 1s/step - loss: 0.5908 - accuracy: 0.7833 - val_loss: 0.3581 - val_accuracy: 0.8667
+Epoch 65/70
+15/15 [==============================] - 16s 1s/step - loss: 0.3866 - accuracy: 0.8583 - val_loss: 0.3041 - val_accuracy: 0.8583
+Epoch 66/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4065 - accuracy: 0.7917 - val_loss: 0.2570 - val_accuracy: 0.9333
+Epoch 67/70
+15/15 [==============================] - 16s 1s/step - loss: 0.3022 - accuracy: 0.8583 - val_loss: 0.2430 - val_accuracy: 0.8917
+Epoch 68/70
+15/15 [==============================] - 16s 1s/step - loss: 0.3438 - accuracy: 0.8750 - val_loss: 0.2250 - val_accuracy: 0.9083
+Epoch 69/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4505 - accuracy: 0.8250 - val_loss: 0.2933 - val_accuracy: 0.8667
+Epoch 70/70
+15/15 [==============================] - 16s 1s/step - loss: 0.4327 - accuracy: 0.8250 - val_loss: 0.2679 - val_accuracy: 0.8750
+# Plot training and validation graphs
+acc = history.history['accuracy']
+val_accuracy = history.history['val_accuracy']
+
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+
+epochs_range = range(EPOCHS)
+
+plt.figure(figsize=(15,5))
+plt.subplot(1,2,1)
+plt.plot(epochs_range,acc,label='Training Accuracy')
+plt.plot(epochs_range,val_accuracy,label='Validation Accuracy')
+plt.legend(loc='lower right')
+plt.title('Training and Validation Accuracy')
+
+plt.subplot(1,2,2)
+plt.plot(epochs_range,loss,label='Training Loss')
+plt.plot(epochs_range,val_loss,label='Validation Loss')
+plt.legend(loc='upper right')
+plt.title('Training and Validation Loss')
+plt.show()
 
